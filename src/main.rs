@@ -8,18 +8,13 @@ use std::io::stdout;
 
 fn main() -> Result<()> {
     println!("Hello, world!");
-    let game = Game::new(12, 12);
+    let game = Game::new(24, 24);
 
     stdout().execute(crossterm::terminal::Clear(terminal::ClearType::All))?;
+    game.tick()
 
-    for y in 0..game.board.height {
-        for x in 0..game.board.width {
-            stdout()
-                .queue(crossterm::cursor::MoveTo(x, y))
-                .unwrap()
-                .queue(crossterm::style::Print("*"))?;
-        }
-    }
-
-    Ok(())
+    // Commented out to let your cpu take a break
+    // loop {
+    //     game.tick()
+    // }
 }
