@@ -8,10 +8,13 @@ use std::io::stdout;
 
 fn main() -> Result<()> {
     println!("Hello, world!");
-    let game = Game::new(24, 24);
+    let mut game = Game::new(24, 24);
 
     stdout().execute(crossterm::terminal::Clear(terminal::ClearType::All))?;
-    game.tick()
+    loop {
+        let _ = game.tick();
+    }
+
 
     // Commented out to let your cpu take a break
     // loop {

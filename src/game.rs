@@ -1,5 +1,9 @@
 use std::io::stdout;
+use std::{thread, time};
 use crossterm::*;
+use crossterm_screen::Screen;
+use crossterm_input::*;
+
 
 use rand::Rng;
 
@@ -87,12 +91,35 @@ impl Game {
             board: Board::new(height, width),
         }
     }
-    pub fn tick(&self) -> Result<()> {
+    pub fn tick(&mut self) -> Result<()> {
         // Take player input
         // check if it's legal/game is over
         // Draw board
         // Go back to start
+        let screen = Screen::new(true);
+        let mut input = TerminalInput::from_output(&screen.stdout);
+        let mut stdin = input.read_async();
+        if let Some(key_event) = stdin.next() {
+            match key_event {
+                InputEvent::Keyboard(key_event) => match key_event {
+                    // KeyEvent::Up => self.board.snake.direction = Direction::Up,
+                    // KeyEvent::Up => self.board.snake.direction = Direction::Up,
+                    KeyEvent::Up => {
+                        screen.stdout.write_string(format!("Got to the up \n")).unwrap();
+                    },
+                    KeyEvent::Down => self.board.snake.direction = Direction::Down,
+                    KeyEvent::Right => self.board.snake.direction = Direction::Right,
+                    KeyEvent::Left => self.board.snake.direction = Direction::Left,
+                    _ => {},
+                },
+                _ => {
+                    screen.stdout.write_string(format!("Got to the default arm\n")).unwrap();
+                },
+            }
+        }
+        thread::sleep(time::Duration::from_millis(1000));
         self.board.draw()
+
     }
 }
 
