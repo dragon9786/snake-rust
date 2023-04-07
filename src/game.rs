@@ -3,28 +3,45 @@ use crossterm::*;
 use crossterm_input::*;
 use crossterm_screen::Screen;
 use std::io::{stdout, Stdout};
+use std::ops::Add;
 use std::{process, thread, time};
 
 use rand::Rng;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Point {
+    x: i16,
+    y: i16,
+}
+
+#[derive(Debug, Clone)]
 pub struct Position {
-    x: u16,
-    y: u16,
+    point: &'static Point,
+    direction: &'static Direction,
 }
 
 #[derive(Debug, Clone)]
 pub struct Board {
-    pub height: u16,
-    pub width: u16,
-    pub food: Position,
+    pub height: i16,
+    pub width: i16,
+    pub food: Point,
     pub snake: Snake,
 }
 
+impl Add for Point {
+    type Output = Point;
+    fn add(self, point: Point) -> Self::Output {
+        Point {
+            x: self.x + point.x,
+            y: self.y + point.y,
+        }
+    }
+}
+
 impl Board {
-    pub fn new(height: u16, width: u16) -> Self {
-        let snake_start = random_position(width, height);
-        let food_start = random_position(width, height);
+    pub fn new(height: i16, width: i16) -> Self {
+        let snake_start = random_Point(width, height);
+        let food_start = random_Point(width, height);
 
         Board {
             height,
@@ -38,12 +55,12 @@ impl Board {
         }
     }
 
-    pub fn is_legal(&self, next_position: Position) -> bool {
-        next_position.x > 0
-            && next_position.x < self.width
-            && next_position.y < self.height
-            && next_position.y > 0
-    }
+    // pub fn is_legal(&self, next_Point: Point) -> bool {
+    //     next_Point.x > 0
+    //         && next_Point.x < self.width
+    //         && next_Point.y < self.height
+    //         && next_Point.y > 0
+    // }
 
     pub fn draw(&self, stdout: &mut Stdout) -> Result<()> {
         for y in 0..self.height {
@@ -55,7 +72,7 @@ impl Board {
                         .unwrap()
                         .queue(crossterm::cursor::Hide)
                         .unwrap()
-                        .queue(crossterm::cursor::MoveTo(x, y))
+                        .queue(crossterm::cursor::MoveTo(x as u16, y as u16))
                         .unwrap()
                         .queue(crossterm::style::SetColors(crossterm::style::Colors::new(
                             Color::DarkGreen,
@@ -71,7 +88,7 @@ impl Board {
                         .unwrap()
                         .queue(crossterm::cursor::Hide)
                         .unwrap()
-                        .queue(crossterm::cursor::MoveTo(x, y))
+                        .queue(crossterm::cursor::MoveTo(x as u16, y as u16))
                         .unwrap()
                         .queue(crossterm::style::SetColors(crossterm::style::Colors::new(
                             Color::DarkRed,
@@ -82,13 +99,16 @@ impl Board {
                 }
             }
         }
-        // Place the food at it's position by drawing it
+        // Place the food at it's Point by drawing it
         stdout
             .queue(crossterm::cursor::DisableBlinking)
             .unwrap()
             .queue(crossterm::cursor::Hide)
             .unwrap()
-            .queue(crossterm::cursor::MoveTo(self.food.x, self.food.y))
+            .queue(crossterm::cursor::MoveTo(
+                self.food.x as u16,
+                self.food.y as u16,
+            ))
             .unwrap()
             .queue(crossterm::style::SetColors(crossterm::style::Colors::new(
                 Color::DarkYellow,
@@ -99,8 +119,8 @@ impl Board {
 
         stdout
             .queue(crossterm::cursor::MoveTo(
-                self.snake.head.x,
-                self.snake.head.y,
+                self.snake.head.x as u16,
+                self.snake.head.y as u16,
             ))
             .unwrap()
             .queue(crossterm::cursor::Show)
@@ -112,8 +132,8 @@ impl Board {
     }
 }
 
-pub fn random_position(width: u16, height: u16) -> Position {
-    Position {
+pub fn random_Point(width: i16, height: i16) -> Point {
+    Point {
         x: rand::thread_rng().gen_range(1..width - 1),
         y: rand::thread_rng().gen_range(1..height - 1),
     }
@@ -122,11 +142,11 @@ pub fn random_position(width: u16, height: u16) -> Position {
 #[derive(Debug)]
 pub struct Game {
     pub board: Board,
-    pub score: u16,
+    pub score: i16,
 }
 
 impl Game {
-    pub fn new(height: u16, width: u16) -> Self {
+    pub fn new(height: i16, width: i16) -> Self {
         Game {
             board: Board::new(height, width),
             score: 0,
@@ -147,20 +167,20 @@ impl Game {
                     InputEvent::Keyboard(k) => match k {
                         KeyEvent::Up => {
                             game_started = true;
-                            self.board.snake.grow(&Direction::Up, stdout)
+                            self.board.snake.slither(&Direction::Up, stdout)
                         }
 
                         KeyEvent::Down => {
                             game_started = true;
-                            self.board.snake.grow(&Direction::Down, stdout)
+                            self.board.snake.slither(&Direction::Down, stdout)
                         }
                         KeyEvent::Right => {
                             game_started = true;
-                            self.board.snake.grow(&Direction::Right, stdout)
+                            self.board.snake.slither(&Direction::Right, stdout)
                         }
                         KeyEvent::Left => {
                             game_started = true;
-                            self.board.snake.grow(&Direction::Left, stdout)
+                            self.board.snake.slither(&Direction::Left, stdout)
                         }
                         KeyEvent::Char('q') => {
                             stdin.stop_reading();
@@ -168,7 +188,7 @@ impl Game {
                         }
                         _ => {
                             if game_started {
-                                self.board.snake.grow(self.board.snake.direction, stdout);
+                                self.board.snake.slither(self.board.snake.direction, stdout);
                             }
                         }
                     },
@@ -177,7 +197,7 @@ impl Game {
             } else {
                 if game_started {
                     std::thread::sleep(time::Duration::from_millis(600));
-                    self.board.snake.grow(self.board.snake.direction, stdout);
+                    self.board.snake.slither(self.board.snake.direction, stdout);
                 }
             }
 
@@ -189,9 +209,11 @@ impl Game {
                 self.quit(stdout)?;
             }
             if self.board.food == self.board.snake.head {
-                // add food in a new random position and continue
-                self.board.food = random_position(self.board.width - 1, self.board.height - 1);
+                // add food in a new random Point and continue
+                self.board.food =
+                    random_Point(self.board.width as i16 - 1, self.board.height as i16 - 1);
                 self.score = self.score + 1;
+                self.board.snake.grow_body();
             }
             self.board.draw(stdout)?;
         }
@@ -220,15 +242,34 @@ pub enum Direction {
     Right,
 }
 
+impl Direction {
+    pub fn direction_to_Point(&self) -> Point {
+        match self {
+            Direction::Up => {
+                return Point { x: 0, y: -1 };
+            }
+            Direction::Down => {
+                return Point { x: 0, y: 1 };
+            }
+            Direction::Left => {
+                return Point { x: -1, y: 0 };
+            }
+            Direction::Right => {
+                return Point { x: 1, y: 0 };
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Snake {
-    pub head: Position,
+    pub head: Point,
     pub direction: &'static Direction,
     pub body: Vec<Position>,
 }
 
 impl Snake {
-    pub fn at_head(&self, x: u16, y: u16) -> Option<&'static str> {
+    pub fn at_head(&self, x: i16, y: i16) -> Option<&'static str> {
         if self.head.x == x && self.head.y == y {
             return match &self.direction {
                 Direction::Up => Some("^"),
@@ -240,25 +281,46 @@ impl Snake {
         return None;
     }
 
-    pub fn grow(&mut self, direction: &'static Direction, stdout: &mut Stdout) {
-        match direction {
-            Direction::Up => {
-                self.head.y = self.head.y - 1;
-            }
-            Direction::Down => {
-                self.head.y = self.head.y + 1;
-            }
-            Direction::Left => {
-                self.head.x = self.head.x - 1;
-            }
-            Direction::Right => {
-                self.head.x = self.head.x + 1;
-            }
-        }
-        self.direction = direction;
+    pub fn slither(&mut self, direction: &'static Direction, stdout: &mut Stdout) {
+        self.head = self.head + Direction::direction_to_Point(direction);
+        self.direction = direction
     }
 
-    pub fn collided_with_wall(&mut self, x: u16, y: u16) -> bool {
-        self.head.x == 0 || self.head.y == 0 || self.head.y == y - 1 || self.head.x == x - 1
+    pub fn get_snake_caboose(&mut self) -> &Point {
+        let Point = self.body.get(self.body.len() - 1);
+        match Point {
+            Some(pos) => return pos.point,
+            None => return &self.head,
+        }
+    }
+
+    pub fn grow_body(&mut self) {
+        // Growbody takes the last point from `get_snake_caboose` and the Position
+        // Reverse the direction and adds the body to end of Vec<Point>
+    }
+
+    pub fn collided_with_wall(&mut self, x: i16, y: i16) -> bool {
+        self.head.x == 0
+            || self.head.y == 0
+            || self.head.y == y as i16 - 1
+            || self.head.x == x as i16 - 1
     }
 }
+
+// head is always present
+// body[0] ->  Point after we first consume some food
+//
+// match direction {
+//     Direction::Up => {
+//         self.head.y = self.head.y - 1;
+//     }
+//     Direction::Down => {
+//         self.head.y = self.head.y + 1;
+//     }
+//     Direction::Left => {
+//         self.head.x = self.head.x - 1;
+//     }
+//     Direction::Right => {
+//         self.head.x = self.head.x + 1;
+//     }
+// }
